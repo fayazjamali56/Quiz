@@ -1,0 +1,84 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Lecture Quiz Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--pr:#4f46e5;--ok:#16a34a;--no:#dc2626;--bd:#e5e7eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1220;--card:#1a1e30;--tx:#eef0f8;--mu:#9aa3b8;--bd:#2c3250;--pr:#818cf8}}
+:root[data-theme="dark"]{--bg:#0f1220;--card:#1a1e30;--tx:#eef0f8;--mu:#9aa3b8;--bd:#2c3250;--pr:#818cf8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.w{max-width:760px;margin:0 auto;padding:18px}h1{font-size:26px;margin:6px 0}h2{font-size:20px;margin:8px 0}.mu{color:var(--mu);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:10px}
+.sub{cursor:pointer;text-align:left;font:inherit;color:inherit;transition:.15s;border-left:6px solid var(--c)}.sub:hover{transform:translateY(-2px);box-shadow:0 6px 18px #0002}
+.sub b{display:block;font-size:17px}.btn{background:var(--pr);color:#fff;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;cursor:pointer}
+.btn.g{background:transparent;color:var(--pr);border:1px solid var(--pr)}.btn:disabled{opacity:.5}
+input[type=text],textarea,input[type=number]{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:140px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}
+.opt{display:block;width:100%;text-align:left;background:var(--card);color:var(--tx);border:2px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0;font:inherit;cursor:pointer}
+.opt:hover{border-color:var(--pr)}.opt.ok{border-color:var(--ok);background:#16a34a22}.opt.no{border-color:var(--no);background:#dc262622}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;background:var(--pr)}
+.tag{display:inline-block;font-size:12px;padding:2px 9px;border-radius:99px;background:var(--bd);margin-right:6px}
+.chk{display:flex;gap:10px;align-items:center;padding:6px 0}.chk input{width:20px;height:20px}
+.big{font-size:48px;font-weight:800;color:var(--pr)}.rv{border-left:4px solid var(--bd);padding-left:10px;margin:12px 0}
+a.back{cursor:pointer;color:var(--pr);font-weight:600}.sp{display:inline-block;width:16px;height:16px;border:3px solid #fff5;border-top-color:#fff;border-radius:50%;animation:s 1s linear infinite;vertical-align:middle;margin-right:6px}@keyframes s{to{transform:rotate(360deg)}}
+</style></head><body><div class="w" id="app"></div>
+<script>
+const COL=['#4f46e5','#db2777','#059669','#d97706','#0891b2'];
+const DEF=['Data Mining','Introduction to Marketing','Introduction to Parallel & Distributed Computing','IT Infrastructure','Subject 5 (tap to rename)'];
+let S={subs:DEF.map((n,i)=>({n,l:[]}))},V={p:'home'},Q=null,dl=null,KEY='',MODEL='gemini-2.5-flash';
+try{const x=localStorage.getItem('qh');if(x)S=JSON.parse(x);KEY=localStorage.getItem('gk')||'';MODEL=localStorage.getItem('gm')||MODEL}catch(e){}
+const save=()=>{try{localStorage.setItem('qh',JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s),A=$('#app'),esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+render();
+async function llm(prompt){const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+MODEL+':generateContent?key='+encodeURIComponent(KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.7}})});
+const j=await r.json();if(!r.ok)throw{message:(j.error&&j.error.message)||('HTTP '+r.status)};const t=j.candidates&&j.candidates[0]&&j.candidates[0].content.parts.map(p=>p.text||'').join('');if(!t)throw{message:'Empty response'};return JSON.parse(t.replace(/```json|```/g,'').trim())}
+function setKey(){const k=$('#gk').value.trim(),m=$('#gm').value.trim();if(!k)return alert('API key paste karo.');KEY=k;MODEL=m||MODEL;try{localStorage.setItem('gk',KEY);localStorage.setItem('gm',MODEL)}catch(e){}home()}
+function clearKey(){KEY='';try{localStorage.removeItem('gk')}catch(e){}home()}
+const go=(p,x={})=>{V={p,...x};render();scrollTo(0,0)};
+function render(){const f={home,subj,cfg,quiz,res}[V.p];f()}
+function home(){A.innerHTML=`<h1>📚 Lecture Quiz Hub</h1><div class="mu">Subject chuno, lectures add karo, phir MCQs / True-False / Fill in the blanks ka test do.</div><div class="grid">${S.subs.map((s,i)=>`<button class="card sub" style="--c:${COL[i]}" onclick="go('subj',{i:${i}})"><b>${esc(s.n)}</b><span class="mu">${s.l.length} lecture(s)</span></button>`).join('')}</div><div class="card" style="margin-top:16px"><h2>🔑 Gemini API key</h2>${KEY?`<p class="mu">✅ Key saved (sirf is browser me). Model: ${esc(MODEL)}</p><button class="btn g" onclick="clearKey()">Remove key</button>`:`<p class="mu">aistudio.google.com se free key banao aur yahan paste karo. Ye sirf aapke browser me save hogi.</p><input type="password" id="gk" placeholder="Paste Gemini API key" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);margin-bottom:8px"><input type="text" id="gm" value="${esc(MODEL)}" style="margin-bottom:8px"><button class="btn" onclick="setKey()">Save key</button>`}</div>`}
+function subj(){const s=S.subs[V.i];A.innerHTML=`<a class="back" onclick="go('home')">← Subjects</a><h1>${esc(s.n)}</h1><div class="row"><button class="btn g" onclick="ren()">Rename subject</button></div>
+<div class="card"><h2>➕ Add lecture</h2><input type="text" id="lt" placeholder="Lecture title (e.g. Lecture 1)" style="margin-bottom:8px"><textarea id="lx" placeholder="Lecture ka text yahan paste karo..."></textarea><div class="row" style="margin-top:8px"><input type="file" id="lf" accept=".txt,.md"><button class="btn" onclick="addL()">Add lecture</button></div></div>
+<h2>Lectures</h2>${s.l.map((l,j)=>`<div class="card"><b>${esc(l.t)}</b> <span class="mu">${l.x.length} chars</span><div class="row" style="margin-top:8px"><button class="btn" onclick="go('cfg',{i:${V.i},sel:[${j}]})">Start quiz</button><button class="btn g" onclick="del(${j})">Delete</button></div></div>`).join('')||'<p class="mu">Abhi koi lecture nahi.</p>'}
+${s.l.length>1?`<button class="btn" onclick="go('cfg',{i:${V.i},sel:[${s.l.map((_,j)=>j)}]})">Quiz from all lectures</button>`:''}`;
+$('#lf').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{$('#lx').value=t;if(!$('#lt').value)$('#lt').value=f.name.replace(/\.\w+$/,'')})}}
+function ren(){const n=prompt('Subject name',S.subs[V.i].n);if(n){S.subs[V.i].n=n;save();subj()}}
+function addL(){const t=$('#lt').value.trim()||'Lecture '+(S.subs[V.i].l.length+1),x=$('#lx').value.trim();if(x.length<50)return alert('Lecture text thora zyada paste karo.');S.subs[V.i].l.push({t,x});save();subj()}
+function del(j){if(confirm('Delete lecture?')){S.subs[V.i].l.splice(j,1);save();subj()}}
+function cfg(){const s=S.subs[V.i];A.innerHTML=`<a class="back" onclick="go('subj',{i:${V.i}})">← ${esc(s.n)}</a><h1>Quiz setup</h1>
+<div class="card"><h2>Lectures</h2>${s.l.map((l,j)=>`<label class="chk"><input type="checkbox" class="ls" value="${j}" ${V.sel.includes(j)?'checked':''}>${esc(l.t)}</label>`).join('')}</div>
+<div class="card"><h2>Mode</h2><label class="chk"><input type="radio" name="m" value="all" checked onchange="mode()">All at once (75 MCQs + 75 True/False + 75 Fill blanks)</label><label class="chk"><input type="radio" name="m" value="one" onchange="mode()">Separate (one type only, 120 questions)</label>
+<div id="ty" style="display:none"><select id="ts" class="opt" onchange="mode()"><option value="mcq">MCQs</option><option value="tf">True / False</option><option value="fib">Fill in the blanks</option></select></div>
+<div class="row" style="margin-top:8px"><span class="mu">Questions per type:</span><input type="number" id="cn" value="75" min="5" max="200" style="width:100px"></div></div>
+<button class="btn" id="go" onclick="start()">Generate &amp; start quiz</button><div id="st" class="mu" style="margin-top:10px"></div>`}
+function mode(){const one=document.querySelector('[name=m]:checked').value=='one';$('#ty').style.display=one?'block':'none';$('#cn').value=one?120:75}
+const P={mcq:'multiple-choice questions. Each: {"q":"...","o":["A","B","C","D"],"a":0-3 index of correct,"e":"short why"}',tf:'true/false statements. Each: {"q":"statement","a":true or false,"e":"short why"}. Mix roughly half true, half false',fib:'fill-in-the-blank questions. Each: {"q":"sentence containing _____ for the blank","a":"short exact answer (1-3 words)","e":"short why"}'};
+async function gen(type,n,text,st){let out=[];while(out.length<n){const k=Math.min(20,n-out.length);st(`${type.toUpperCase()}: ${out.length}/${n}...`);
+const pr=`You are an exam setter. Using ONLY the lecture text below, write ${k} very important, exam-style ${P[type]}. Cover key concepts, definitions, differences and facts a test would ask. Do not repeat these already-used questions: ${out.slice(-40).map(x=>x.q.slice(0,50)).join(' | ')||'none'}.\nReturn ONLY a JSON array.\n\nLECTURE TEXT:\n${text.slice(0,24000)}`;
+const r=await llm(pr);const arr=(Array.isArray(r)?r:r.questions||[]).filter(x=>x&&x.q&&x.a!==undefined).map(x=>({...x,t:type}));if(!arr.length)throw{message:'No questions returned'};out=out.concat(arr)}return out.slice(0,n)}
+async function start(){const sel=[...document.querySelectorAll('.ls:checked')].map(c=>+c.value);if(!sel.length)return alert('Kam az kam 1 lecture chuno.');if(!KEY)return alert('Pehle Home page par Gemini API key save karo.');
+const m=document.querySelector('[name=m]:checked').value,n=Math.max(5,Math.min(200,+$('#cn').value||75)),types=m=='all'?['mcq','tf','fib']:[$('#ts').value],text=sel.map(j=>S.subs[V.i].l[j].t+'\n'+S.subs[V.i].l[j].x).join('\n\n');
+$('#go').disabled=true;$('#go').innerHTML='<span class="sp"></span>Generating...';const st=t=>$('#st').textContent=t;
+try{const rs=await Promise.all(types.map(t=>gen(t,n,text,st)));let all=[].concat(...rs);Q={name:S.subs[V.i].n,qs:all,i:0,ans:[],sub:V.i,sel};go('quiz')}catch(e){st('Error: '+(e.message||e.code||e)+' — dobara try karo.');$('#go').disabled=false;$('#go').textContent='Generate & start quiz'}}
+const lab=['A','B','C','D'];
+function quiz(){const q=Q.qs[Q.i],tot=Q.qs.length,done=Q.ans[Q.i]!==undefined;
+let body='';if(q.t=='mcq')body=q.o.map((o,k)=>`<button class="opt ${done?(k==q.a?'ok':(k==Q.ans[Q.i]?'no':'')):''}" ${done?'disabled':''} onclick="ans(${k})">${lab[k]}. ${esc(o)}</button>`).join('');
+else if(q.t=='tf')body=[true,false].map(b=>`<button class="opt ${done?(b==q.a?'ok':(b===Q.ans[Q.i]?'no':'')):''}" ${done?'disabled':''} onclick="ans(${b})">${b?'True':'False'}</button>`).join('');
+else body=done?`<div class="opt ${ok(q,Q.ans[Q.i])?'ok':'no'}">Your answer: ${esc(Q.ans[Q.i]||'(blank)')}</div><div class="opt ok">Correct: ${esc(q.a)}</div>`:`<input type="text" id="fi" placeholder="Type your answer" autocomplete="off" onkeydown="if(event.key=='Enter')ans($('#fi').value)"><button class="btn" style="margin-top:10px" onclick="ans($('#fi').value)">Submit</button>`;
+A.innerHTML=`<div class="row" style="justify-content:space-between"><span class="mu">${esc(Q.name)}</span><span class="mu">${Q.i+1} / ${tot}</span></div><div class="bar"><i style="width:${(Q.i+(done?1:0))/tot*100}%"></i></div>
+<div class="card"><span class="tag">${{mcq:'MCQ',tf:'True/False',fib:'Fill in the blank'}[q.t]}</span><h2 style="margin-top:10px">${esc(q.q)}</h2>${body}${done&&q.e?`<p class="mu">💡 ${esc(q.e)}</p>`:''}</div>
+<div class="row"><button class="btn" ${done?'':'disabled'} onclick="nxt()">${Q.i+1==tot?'Finish':'Next →'}</button><button class="btn g" onclick="if(confirm('Quit quiz?'))go('home')">Quit</button></div>`;const f=$('#fi');if(f)f.focus()}
+const ok=(q,a)=>String(a||'').trim().toLowerCase().replace(/[.\s]+$/,'')==String(q.a).trim().toLowerCase().replace(/[.\s]+$/,'');
+const right=(q,a)=>q.t=='fib'?ok(q,a):a===q.a;
+function ans(a){Q.ans[Q.i]=a;quiz()}
+function nxt(){if(Q.i+1==Q.qs.length)go('res');else{Q.i++;quiz()}}
+function res(){const c=Q.qs.filter((q,i)=>right(q,Q.ans[i])).length,t=Q.qs.length,p=Math.round(c/t*100);
+const by=['mcq','tf','fib'].map(k=>{const L=Q.qs.map((q,i)=>[q,i]).filter(x=>x[0].t==k);return L.length?`<span class="tag">${{mcq:'MCQ',tf:'T/F',fib:'Fill'}[k]}: ${L.filter(x=>right(x[0],Q.ans[x[1]])).length}/${L.length}</span>`:''}).join('');
+A.innerHTML=`<div class="card" style="text-align:center"><div class="mu">${esc(Q.name)} — Result</div><div class="big">${p}%</div><div>${c} / ${t} correct</div><div style="margin-top:8px">${by}</div></div>
+<div class="row"><button class="btn" onclick="pdf()">⬇ Download PDF</button><button class="btn g" onclick="go('cfg',{i:Q.sub,sel:Q.sel})">New quiz</button><button class="btn g" onclick="go('home')">Home</button></div>
+<h2 style="margin-top:18px">Review</h2>${Q.qs.map((q,i)=>`<div class="rv" style="border-color:${right(q,Q.ans[i])?'var(--ok)':'var(--no)'}"><b>${i+1}. ${esc(q.q)}</b><div class="mu">Your answer: ${esc(show(q,Q.ans[i]))} · Correct: ${esc(show(q,q.a))}</div></div>`).join('')}`}
+const show=(q,a)=>a===undefined?'—':q.t=='mcq'?lab[a]+'. '+(q.o[a]||''):q.t=='tf'?(a?'True':'False'):a;
+async function pdf(){if(!window.jspdf)return alert('PDF library load nahi hui.');const d=new jspdf.jsPDF(),W=180;let y=20;const line=(t,sz=11,b=false,col=0)=>{d.setFontSize(sz);d.setFont('helvetica',b?'bold':'normal');d.setTextColor(col);d.splitTextToSize(String(t),W).forEach(l=>{if(y>280){d.addPage();y=20}d.text(l,15,y);y+=sz*.5+1.5})};
+const c=Q.qs.filter((q,i)=>right(q,Q.ans[i])).length;line(Q.name+' - Quiz Result',18,true);line(`Score: ${c}/${Q.qs.length} (${Math.round(c/Q.qs.length*100)}%)  |  ${new Date().toLocaleDateString()}`,12);y+=4;
+Q.qs.forEach((q,i)=>{const r=right(q,Q.ans[i]);line(`${i+1}. ${q.q}`,11,true);if(q.t=='mcq')q.o.forEach((o,k)=>line(`   ${lab[k]}. ${o}`,10));line(`   Your answer: ${show(q,Q.ans[i])}  ${r?'[Correct]':'[Wrong]'}`,10,false,r?[22,130,60]:[200,40,40]);if(!r)line(`   Correct answer: ${show(q,q.a)}`,10,false,[22,130,60]);if(q.e)line(`   Note: ${q.e}`,9,false,100);y+=3});
+const blob=d.output('blob'),fn=Q.name.replace(/\W+/g,'_')+'_quiz.pdf';if(dl){try{await dl.save({filename:fn,data:blob})}catch(e){if(e.code!='declined')alert('Download failed: '+(e.message||e.code))}}else d.save(fn)}
+</script></body></html>
